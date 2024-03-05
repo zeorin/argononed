@@ -24,7 +24,10 @@ SOFTWARE.
 
 #include "argononed.common.h"
 
-#include <argp.h>
+//#include <argp.h>
+#include "args.h"
+#include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -47,7 +50,7 @@ int Init_Configuration(struct DTBO_Data* conf)
       .thresholds = { 55, 60, 65 },
       .hysteresis = 3
   };
-  memset(&conf->configuration, 0, sizeof(struct DTBO_Data));
+  memset(&conf->configuration, 0, sizeof(struct DTBO_Config));
   memcpy(&conf->configuration, &defaults, sizeof(struct DTBO_Config));
 
   conf->Log_Level = LOG_LEVEL;
@@ -402,7 +405,7 @@ const char *argp_program_version = "ArgonOne Daemon version " DAEMON_VERSION;
 const char *argp_program_bug_address = "<gitlab.com/darkelvenangel/argononed.git>";
 static char doc[] = "ArgonOne Daemon";
 // static char args_doc[] = "";
-static struct argp_option options[] = {
+/* static struct argp_option options[] = {
   { "fans",       11,  "VALUE",    0, "Set Fan values"                  ,0 },
   { "fan0",       1,   "VALUE",    0, "Set Fan1 value"                  ,0 },
   { "fan1",       2,   "VALUE",    0, "Set Fan2 value"                  ,0 },
@@ -419,11 +422,49 @@ static struct argp_option options[] = {
   { "dumpconf",   10,  0,          0, "Dump build config"               ,2 },
   { "colour",     'c', 0,          0, "Run in Forground with colour"    ,2 },
   { 0 }
-};
+}; */
+enum ap_types{
+    AP_FLAG,
+    AP_INT,
+    AP_STR,
+    AP_DBL,
+    AP_G_STR,
 
+};
+struct args_options {
+    const char* flags;
+    const char* arg;
+    const char* doc;
+    enum ap_types type;
+    union
+    {
+        double      d;
+        int         i;
+        const char* s;
+    };
+    int group;
+};
+static struct args_options args_options[] = {
+    { "fans",       "VALUE",    "Set Fan values"                  ,AP_STR,  .s=NULL, 0 },
+    { "fan0",       "VALUE",    "Set Fan1 value"                  ,AP_INT,  .i=-1,   0 },
+    { "fan1",       "VALUE",    "Set Fan2 value"                  ,AP_INT,  .i=-1,   0 },
+    { "fan2",       "VALUE",    "Set Fan3 value"                  ,AP_INT,  .i=-1,   0 },
+    { "temps",      "VALUE",    "Set Temperature values"          ,AP_INT,  .i=-1,   0 },
+    { "temp0",      "VALUE",    "Set Temperature1 value"          ,AP_INT,  .i=-1,   0 },
+    { "temp1",      "VALUE",    "Set Temperature2 value"          ,AP_INT,  .i=-1,   0 },
+    { "temp2",      "VALUE",    "Set Temperature3 value"          ,AP_INT,  .i=-1,   0 },
+    { "hysteresis", "VALUE",    "Set Hysteresis"                  ,AP_INT,  .i=-1,   0 },
+    { "conf",       "FILENAME", "load config"                     ,AP_STR,  .s="/etc/argonone.conf", 1 },
+    { "F forground",0,          "Run in Forground"                ,AP_FLAG, .i=-1,   1 },
+    { "l loglevel", "VALUE",    "Set Log level"                   ,AP_INT,  .i=LOG_LEVEL, 1 },
+    { "forceflag",  "VALUE",    "Force flags to VALUE"            ,AP_STR,  .s="0",  1 },
+    { "dumpconf",   0,          "Dump build config"               ,AP_FLAG, .i=-1,   2 },
+    { "c colour",   0,          "Run in Forground with colour"    ,AP_FLAG, .i=-1,   2 },
+    { 0 }
+};
 extern const char* LOG_LEVEL_STR[7];
 /* Parse a single option. */
-static error_t parse_opt (int key, char *arg, struct argp_state *state)
+/* static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
   struct DTBO_Data *config = state->input;
   switch (key)
@@ -489,7 +530,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
       if (state->arg_num >= 2)
       {
         fprintf(stderr, "ERROR:  Bad Argument");
-        /* Too many arguments. */
+        // Too many arguments. 
         argp_usage (state);
       }
       break;
@@ -497,10 +538,35 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     default: return ARGP_ERR_UNKNOWN;
   }
   return 0;
-}
+} */
 /* Our argp parser. */
-static struct argp argp = { options, parse_opt, NULL, doc, 0, 0, 0 };
-
+// static struct argp argp = { options, parse_opt, NULL, doc, 0, 0, 0 };
+static const char* HELP_TXT = "\
+Usage: %s [OPTION...]\n\
+%s\n\
+\n\
+      --fan0=VALUE           Set Fan1 value\n\
+      --fan1=VALUE           Set Fan2 value\n\
+      --fan2=VALUE           Set Fan3 value\n\
+      --fans=VALUE           Set Fan values\n\
+      --hysteresis=VALUE     Set Hysteresis\n\
+      --temp0=VALUE          Set Temperature1 value\n\
+      --temp1=VALUE          Set Temperature2 value\n\
+      --temp2=VALUE          Set Temperature3 value\n\
+      --temps=VALUE          Set Temperature values\n\
+      --conf=FILENAME        load config\n\
+      --forceflag=VALUE      Force flags to VALUE\n\
+  -F, --forground            Run in Forground\n\
+  -l, --loglevel=VALUE       Set Log level\n\
+  -c, --colour               Run in Forground with colour\n\
+      --dumpconf             Dump build config\n\
+  -?, --help, --usage        Give this help list\n\
+  -V, --version              Print program version\n\
+\n\
+Mandatory or optional arguments to long options are also mandatory or optional\n\
+for any corresponding short options.\n\
+\n\
+Report bugs to <gitlab.com/darkelvenangel/argononed.git>.\n";
 
 /**
  * Parse Command Line Arguments
@@ -516,5 +582,111 @@ int Parse_Command_Line_Arguments(int argc, char **argv, struct DTBO_Data* args, 
     memcpy(args, conf, sizeof(struct DTBO_Data));
     memset(&args->configuration, 255, sizeof(struct DTBO_Config));
     if (argc == 1) return 0;
+#if 0
     return argp_parse (&argp, argc, argv, 0, 0, args);
+#else
+    ArgParser *parser = ap_new_parser();
+    if (!parser) {
+        return -1;
+    }
+    ap_add_flag(parser, "? help usage");
+    ap_set_helptext(parser, HELP_TXT);
+    ap_add_flag(parser, "V version");
+    ap_set_version(parser, argp_program_version);
+    for (struct args_options *Opts = args_options; Opts->flags != 0; Opts++)
+    {
+        //printf("flags; %s\narg; %s\ndoc; %s\ngroup; %d\n", Opts->flags,Opts->arg,Opts->doc,Opts->group);
+        switch (Opts->type)
+        {
+            case AP_FLAG:
+                ap_add_flag(parser,Opts->flags);
+                break;
+            case AP_INT:
+                ap_add_int_opt(parser,Opts->flags, Opts->i);
+                break;
+            case AP_STR:
+                ap_add_str_opt(parser,Opts->flags, Opts->s == NULL ? "" : Opts->s);
+                break;
+            case AP_DBL:
+                ap_add_dbl_opt(parser,Opts->flags, Opts->d);
+                break;
+            case AP_G_STR:
+                ap_add_greedy_str_opt(parser,Opts->flags);
+                break;
+            default:
+                ap_add_flag(parser,Opts->flags);
+                break;
+        }
+    }
+    if (!ap_parse(parser, argc, argv)) {
+        exit(1);
+    }
+    
+    if (ap_found(parser,"?")) {
+        printf(ap_get_helptext(parser),ap_get_binary_name(parser), doc);
+        exit(0);
+    }
+    if (ap_found(parser,"V")) {
+        puts(ap_get_version(parser));
+        exit(0);
+    }
+    if (ap_found(parser,"dumpconf"))
+    {
+      struct DTBO_Data con = {0};
+      printf ("%s\n config\n",argp_program_version);
+      Init_Configuration(&con);
+      printf ("LOG_LEVEL = %d [ %s ] \n", LOG_LEVEL, LOG_LEVEL_STR[LOG_LEVEL]);
+      if (con.extra.flags.PB_DISABLE) printf ("DISABLE_POWERBUTTON ");
+      if (con.extra.flags.FOREGROUND_MODE) printf ("RUN_IN_FOREGROUND ");
+      if (con.extra.flags.USE_SYSFS) printf ("USE_SYSFS_TEMP ");
+      printf ("\n");    
+      exit (0);
+    }
+    struct DTBO_Data *config = args;
+    if (ap_found(parser,"c")) {
+      config->colour = 1;
+      config->extra.flags.FOREGROUND_MODE = 1;
+    }
+    if (ap_found(parser,"F")) config->extra.flags.FOREGROUND_MODE = 1;
+    if (ap_found(parser,"l")){
+      config->Log_Level = (uint8_t)ap_get_int_value(parser,"l");
+      if (config->Log_Level > LOG_DEBUG) { puts("ERROR: LOGLEVEL out of range"); exit(-1); }
+      printf("Loglevel set to %s\n", LOG_LEVEL_STR[config->Log_Level]);
+    }
+    if (ap_found(parser, "fan0")){
+      config->configuration.fanstages[0] = (uint8_t)ap_get_int_value(parser,"fan0");
+    }
+    if (ap_found(parser, "fan1")){
+      config->configuration.fanstages[1] = (uint8_t)ap_get_int_value(parser,"fan1");
+    }
+    if (ap_found(parser, "fan2")){
+      config->configuration.fanstages[2] = (uint8_t)ap_get_int_value(parser,"fan2");
+    }
+    if (ap_found(parser, "temp0")){
+      config->configuration.thresholds[0] = (uint8_t)ap_get_int_value(parser,"temp0");
+    }
+    if (ap_found(parser, "temp1")){
+      config->configuration.thresholds[1] = (uint8_t)ap_get_int_value(parser,"temp1");
+    }
+    if (ap_found(parser, "temp2")){
+      config->configuration.thresholds[2] = (uint8_t)ap_get_int_value(parser,"temp2");
+    }
+    if (ap_found(parser, "hysteresis")){
+      config->configuration.hysteresis = (uint8_t)ap_get_int_value(parser,"hysteresis");
+    }
+    if (ap_found(parser, "conf")){
+      config->filename = ap_get_str_value(parser,"conf");
+    }
+    if (ap_found(parser, "forceflag")){
+      config->extra.flags.value = (uint8_t)ap_get_int_value(parser,"forceflag");
+    }
+    if (ap_found(parser,"fans")){
+        get_vals(ap_get_str_value(parser,"fans"), (uint8_t *)&config->configuration.fanstages, 3, 0);
+    }
+    if (ap_found(parser,"temps")){
+        get_vals(ap_get_str_value(parser,"temps"), (uint8_t *)&config->configuration.thresholds, 3, 0);
+    }
+    ap_free(parser);
+    return 0;
+#endif
 }

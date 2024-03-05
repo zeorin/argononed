@@ -2,6 +2,7 @@
 # Argonone Daemon Makefile
 # ********************************************************************
 CC           = gcc
+AR			 = ar
 RM           = rm -v
 DTC          = dtc -@ -I dts -O dtb -o
 BASH         = bash
@@ -9,9 +10,13 @@ INSTALL      = install
 CFLAGS       = -Wall -s -O3
 LFLAGS       = -lpthread -lrt
 LFLAGS3      = -lrt
-OBJ_DAEMON   = build/argononed.o build/argonone_config.o build/logger.o build/event_timer.o build/argonone_shm.o
+OBJ_DAEMON   = build/argononed.o build/argonone_config.o build/logger.o build/event_timer.o build/argonone_shm.o build/argonone_ipc.o 
 OBJ_SHUTDOWN = src/argonone-shutdown.c
 OBJ_CLI      = src/argonone-cli.c
+OBJ_CLIENT_A = build/shm_client.o build/arc_devkit.o
+LIB_CLIENT_A = argon_client.a
+LIB_ARGS_A	 = args.a
+BIN_CTL		 = argonctl
 BIN_DAEMON   = argononed
 BIN_SHUTDOWN = argonone-shutdown
 BIN_CLI      = argonone-cli
@@ -87,25 +92,52 @@ endif
 
 .DEFAULT_GOAL := all
 
+export
+
 build/%.o: src/%.c
 	@echo "Compile $<"
 	$(CC) -c -o $@ $< $(CFLAGS) -DLOG_LEVEL=$(LOGLEVEL) 
 
-$(BIN_DAEMON): $(OBJ_DAEMON)
-	@echo "Build $(BIN_DAEMON)"
-	$(CC) -o build/$(BIN_DAEMON) $^ $(CFLAGS) $(LFLAGS)
+.PHONY: common
+common:
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/common all
 
-$(BIN_SHUTDOWN): $(OBJ_SHUTDOWN)
-	@echo "Build $(BIN_SHUTDOWN)"
-	$(CC) -o build/$(BIN_SHUTDOWN) $^ $(CFLAGS)
+$(LIB_CLIENT_A): $(OBJ_CLIENT_A)
+	@echo "\e[7mMAKE: $@\e[m"
+	$(AR) rsc build/$(LIB_CLIENT_A) $^
 
-$(BIN_CLI): $(OBJ_CLI) 
-	@echo "Build $(BIN_CLI)"
-	$(CC) -o build/$(BIN_CLI) $^ $(CFLAGS) -DLOG_LEVEL=$(LOGLEVEL) $(LFLAGS3)
+$(LIB_ARGS_A):
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/args
 
-$(OVERLAY): src/argonone.dts
-	@echo "Build $@"
-	$(DTC) build/$@ $<
+$(BIN_CTL): common $(LIB_ARGS_A) $(LIB_CLIENT_A)
+	@echo "\e[7mMAKE: $@\n\e[m"
+	@make -C src/argonctl
+
+$(BIN_DAEMON): $(LIB_ARGS_A) common # $(OBJ_DAEMON)
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/daemon $(BIN_DAEMON)
+#	@echo "Build $(BIN_DAEMON)"
+#	$(CC) -o build/$(BIN_DAEMON) $^ $(CFLAGS) $(LFLAGS)
+
+$(BIN_SHUTDOWN): # $(OBJ_SHUTDOWN)
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/daemon $(BIN_SHUTDOWN)
+#	@echo "Build $(BIN_SHUTDOWN)"
+#	$(CC) -o build/$(BIN_SHUTDOWN) $^ $(CFLAGS)
+
+$(BIN_CLI):# $(OBJ_CLI) 
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/cli-tool $(BIN_CLI)
+#	@echo "Build $(BIN_CLI)"
+#	$(CC) -o build/$(BIN_CLI) $^ $(CFLAGS) -DLOG_LEVEL=$(LOGLEVEL) $(LFLAGS3)
+
+$(OVERLAY): # src/argonone.dts
+	@echo "\e[7mMAKE: $@\e[m"
+	@make -C src/overlay $(OVERLAY)
+#	@echo "Build $@"
+#	$(DTC) build/$@ $<
 
 .PHONY: overlay
 overlay: $(OVERLAY)
@@ -113,7 +145,7 @@ overlay: $(OVERLAY)
 
 .PHONY: daemon
 daemon: $(BIN_DAEMON) $(BIN_SHUTDOWN)
-	@echo "MAKE: Daemon"
+	@echo "MAKE: Daemon Complete"
 
 .PHONY: cli
 cli: $(BIN_CLI)
@@ -226,11 +258,12 @@ endif
 
 .PHONY: clean
 clean::
-	-@$(RM) *.o 2>/dev/null || true
-	-@$(RM) argonone.dtbo 2>/dev/null || true
-	-@$(RM) $(BIN_DAEMON) 2>/dev/null || true
-	-@$(RM) $(BIN_SHUTDOWN) 2>/dev/null || true
-	-@$(RM) $(BIN_CLI) 2>/dev/null || true
+	-@$(RM) build/*.o 2>/dev/null || true
+	-@$(RM) build/argonone.dtbo 2>/dev/null || true
+	-@$(RM) build/$(BIN_DAEMON) 2>/dev/null || true
+	-@$(RM) build/$(BIN_SHUTDOWN) 2>/dev/null || true
+	-@$(RM) build/$(BIN_CLI) 2>/dev/null || true
+	-@$(RM) build/$(LIB_ARGS_A) 2>/dev/null || true
 	-@$(RM) build/* 2>/dev/null || true
 
 .PHONY: mrproper

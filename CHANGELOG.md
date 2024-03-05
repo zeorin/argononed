@@ -1,12 +1,19 @@
 # Change Log
 
+0.5.0
+
+* Reorganized file layout
+* Rework of build system
+* Daemon now uses new arg parser
+* Started `argonctl`
+
 0.4.0
 
 * Complete overhaul of base code
 * Added Configuration file support
 * Added Command Line arguments
-* Deprecated argonone-cli
-* Added Argon IR REMOTE support
+* ~~Deprecated argonone-cli~~
+* ~~Added Argon IR REMOTE support~~
 * Added Error Flags to SHM_Stats
 
 0.3.4
