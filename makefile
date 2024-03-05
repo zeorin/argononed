@@ -67,7 +67,7 @@ ifneq (clean,$(findstring clean, $(MAKECMDGOALS)))
 ifneq (mrproper,$(findstring mrproper, $(MAKECMDGOALS)))
 ifndef CONFIGURED
 ifeq (,$(wildcard makefile.conf))
-$(warning Configuration missing or not correct)
+$(error Configuration missing or not correct)
 endif
 endif
 endif
