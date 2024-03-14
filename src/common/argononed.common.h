@@ -57,6 +57,10 @@ SOFTWARE.
 #define ARG_REG_FW 0x81
 #define ARG_REG_IR 0x82
 #define ARG_REG_CTRL 0x86
+// VScode reports error when it should be fine 
+#ifndef F_TLOCK
+#define F_TLOCK 2
+#endif
 
 typedef enum {
     LOG_NONE = 0,
