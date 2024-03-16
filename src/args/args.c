@@ -1116,7 +1116,8 @@ static void ap_handle_equals_opt(ArgParser* parser, const char* prefix, const ch
     }
 
     *strchr(array, '=') = '\0';
-    char* name = array;
+    char name[65] = { 0 };
+    strncpy(name, array, 64);
     char* value = strchr(arg, '=') + 1;
 
     Option* option;
