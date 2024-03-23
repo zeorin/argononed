@@ -13,7 +13,7 @@
                 argonone-cfg = /bits/ 8 <10 55 100 55 60 65 3>;
                 argonone-ver = [00 02 00];
                 argonone-conf = "/etc/argononed.conf";
-                argonone-extra = [00 01 00];
+                argonone-extra = [01 00 00];
             };
         };
     };
