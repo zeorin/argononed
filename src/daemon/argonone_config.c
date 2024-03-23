@@ -27,6 +27,7 @@ SOFTWARE.
 //#include <argp.h>
 #include "args.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,6 +35,8 @@ SOFTWARE.
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <linux/gpio.h>
 
 #define MAX_LEN 256
 
@@ -118,10 +121,35 @@ int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full
             log_message(LOG_CRITICAL, "No Temperature sensors accessible");
         }
     }
-    if (!conf->extra.flags.PB_DISABLE && access("/dev/gpiochip0", W_OK + R_OK) == -1) {
-        log_message(LOG_CRITICAL, "GPIO device /dev/gpiochip0 inaccessible");
-        log_message(LOG_INFO + LOG_BOLD, "  Disabling Power Button!");
-        conf->extra.flags.PB_DISABLE = 1;
+    // On the Pi 5 we need a different device so gpiochip0 isn't valid
+    if (!conf->extra.flags.PB_DISABLE) {
+        //log_message(LOG_CRITICAL, "GPIO device /dev/gpiochip0 inaccessible");
+        //log_message(LOG_INFO + LOG_BOLD, "  Disabling Power Button!");
+        int fd = -1;
+        char gpiochip_path[32];
+        for (uint8_t i = 0; i < 10; i++)
+        {
+            snprintf(gpiochip_path,31,"/dev/gpiochip%d", i);
+            struct gpiochip_info info;
+            fd = open(gpiochip_path, O_RDONLY);
+            if (fd < 0 ) { continue; }
+            if (ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info) == -1) 
+            { 
+                close(fd); 
+                continue; 
+            }
+            if (strstr(info.label,"pinctrl"))
+            {
+                break;
+            }
+            close(fd);
+            fd = -1;
+        }
+        if (fd == -1) {
+            conf->extra.flags.PB_DISABLE = 1;
+            log_message(LOG_CRITICAL, "GPIO device inaccessible");
+            log_message(LOG_INFO + LOG_BOLD, "  Disabling Power Button!");
+        }
     }
     return 0;
 }
@@ -144,6 +172,7 @@ void Configuration_log(struct DTBO_Data* conf)
     log_message(LOG_DEBUG,"  FLAG Forground mode %s SET", conf->extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Use sysfs for temperature %s SET", conf->extra.flags.USE_SYSFS ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Hardware monitor address %x", conf->extra.flags.SET_HWMON_NUM);
+    log_message(LOG_DEBUG,"Controller type %x", conf->extra.type);
     if ( conf->extra.flags.USE_SYSFS)
     {
         log_message(LOG_INFO,"Using /sys/class/hwmon/hwmon%d/temp1_input", conf->extra.flags.SET_HWMON_NUM);
@@ -204,7 +233,7 @@ int Read_DeviceTree_Data(struct DTBO_Data* conf)
         log_message(LOG_WARN,"Unable to open device-tree data");
         return -1;
     } else {
-        ret = fread(&datain,sizeof(struct DTBO_Config),1,fp);
+        ret = fread(&datain,1,sizeof(struct DTBO_Config),fp);
         if (ret <= 0)
         {
             log_message(LOG_ERROR,"Unable to read device-tree data");
@@ -221,9 +250,14 @@ int Read_DeviceTree_Data(struct DTBO_Data* conf)
                     return 1;
                 } else {
                     struct DTO_EXTRA extra;
-                    ret = fread(&extra,sizeof(struct DTO_EXTRA),1,fp);
+                    ret = fread(&extra,1,sizeof(struct DTO_EXTRA),fp);
                     conf->extra.bus = extra.bus;
                     conf->extra.flags.value |= extra.flags.value;
+                    if (ret == 3) {
+                        conf->extra.type = extra.type;
+                    } else {
+                        conf->extra.type = 0;
+                    }
                 }
             }
         }

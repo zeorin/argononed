@@ -128,6 +128,7 @@ struct DTO_FLAGS{
 struct DTO_EXTRA{
     uint8_t bus;                                // i2c bus number
     struct DTO_FLAGS flags;                     // Devicetree flag settings
+    uint8_t type;                               // Controller type
 }; 
 
 /**
