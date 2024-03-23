@@ -11,9 +11,9 @@
             argonone: argonone {
                 label        = "argonone";
                 argonone-cfg = /bits/ 8 <10 55 100 55 60 65 3>;
-                argonone-ver = [00 01 00];
+                argonone-ver = [00 02 00];
                 argonone-conf = "/etc/argononed.conf";
-                argonone-extra = [01 00];
+                argonone-extra = [00 01 00];
             };
         };
     };
@@ -50,5 +50,6 @@
         argonconf  = <&argonone>,"argonone-conf";
         argon-i2c  = <&argonone>,"argonone-extra.0";
         argon-flag = <&argonone>,"argonone-extra.1";
+        argon-type = <&argonone>,"argonone-extra.2";
     };
 };
