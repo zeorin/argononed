@@ -8,7 +8,7 @@ $(BUILD_PATH)/%.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(INC_PATH) -DLOG_LEVEL=$(LOGLEVEL) -Wno-missing-braces
 
 
-$(BIN_DAEMON): $(FILE_OBJ) $(BUILD_PATH)/args.a $(BUILD_PATH)/logger.o $(BUILD_PATH)/event_timer.o
+$(BIN_DAEMON): $(FILE_OBJ) $(BUILD_PATH)/args.a $(BUILD_PATH)/logger.o $(BUILD_PATH)/event_timer.o $(BUILD_PATH)/i2c_common.o
 	@echo "BUILD $@"
 	$(CC) -o $(BUILD_PATH)/$@ $^ $(CFLAGS) $(LFLAGS)
 
