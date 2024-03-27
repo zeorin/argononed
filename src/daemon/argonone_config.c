@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2022 DarkElvenAngel
+Copyright (c) 2024 DarkElvenAngel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,7 @@ SOFTWARE.
 */
 
 #include "argononed.common.h"
+#include "i2c_common.h"
 
 //#include <argp.h>
 #include "args.h"
@@ -98,7 +99,10 @@ int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full
     log_message(LOG_INFO + LOG_BOLD,"Checking configuration");
     char devi2c[13];
     snprintf(devi2c, 13, "/dev/i2c-%d", conf->extra.bus);
-    if (access(devi2c, F_OK) == -1) log_message(LOG_CRITICAL, "i2c bus at %s inaccessible", devi2c);
+    if (access(devi2c, F_OK) == -1) {
+        log_message(LOG_CRITICAL, "I²C bus at %s inaccessible", devi2c);
+        i2c_autoscan(conf);
+    }
     if (!conf->extra.flags.USE_SYSFS && access("/dev/vcio", W_OK + R_OK) == -1) {
         log_message(LOG_WARN, "Temperature sensor at /dev/vcio inaccessible");
         log_message(LOG_INFO + LOG_BOLD, "  Set flag USE_SYSFS as fallback!");
@@ -151,6 +155,10 @@ int Check_Configuration(struct DTBO_Data* conf, struct DTBO_Config src, int Full
             log_message(LOG_INFO + LOG_BOLD, "  Disabling Power Button!");
         }
     }
+    if (conf->extra.type > ARC_TYPE_RP2040) {
+        log_message(LOG_WARN, "Controller type out of limits");
+        conf->extra.type = ARC_TYPE_AUTO;
+    }
     return 0;
 }
 
@@ -166,7 +174,7 @@ void Configuration_log(struct DTBO_Data* conf)
     log_message(LOG_INFO,"Hysteresis set to %d",conf->configuration.hysteresis);
     log_message(LOG_INFO,"Fan Speeds set to %d%% %d%% %d%%",conf->configuration.fanstages[0],conf->configuration.fanstages[1],conf->configuration.fanstages[2]);
     log_message(LOG_INFO,"Fan Temps set to %d %d %d",conf->configuration.thresholds[0],conf->configuration.thresholds[1],conf->configuration.thresholds[2]);
-    log_message(LOG_INFO,"i2c bus set to /dev/i2c-%d",conf->extra.bus);
+    log_message(LOG_INFO,"I²C bus set to /dev/i2c-%d",conf->extra.bus);
     log_message(LOG_INFO,"Flags set to 0x%02X", conf->extra.flags.value); 
     log_message(LOG_DEBUG,"  FLAG Disable Powerbutton %s SET", conf->extra.flags.PB_DISABLE ? "IS" : "NOT");
     log_message(LOG_DEBUG,"  FLAG Forground mode %s SET", conf->extra.flags.FOREGROUND_MODE ? "IS" : "NOT");
@@ -286,7 +294,7 @@ int Read_DeviceTree_Data(struct DTBO_Data* conf)
 
 typedef enum { CFG_FANS, CFG_FAN0, CFG_FAN1, CFG_FAN2,
     CFG_TEMPS, CFG_TEMP0, CFG_TEMP1, CFG_TEMP2,
-    CFG_HYSTERESIS, CFG_FLAGS, CFG_BUS, CFG_LOGLEVEL } eConf;
+    CFG_HYSTERESIS, CFG_FLAGS, CFG_BUS, CFG_TYPE, CFG_LOGLEVEL } eConf;
 
 typedef struct Conf_id {
     char    *text;
@@ -305,6 +313,7 @@ Conf_id conf_map[] = {
     { "hysteresis", CFG_HYSTERESIS },
     { "flags", CFG_FLAGS },
     { "i2cbus", CFG_BUS },
+    { "type", CFG_TYPE },
     { "loglevel", CFG_LOGLEVEL },
 };
 
@@ -363,6 +372,7 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
         return -1;
     }  
     struct DTBO_Config conf_in = { 0 };
+    memcpy(&conf_in,&conf->configuration,sizeof(struct DTBO_Config));
     char buffer[MAX_LEN];
     uint16_t line = 0;
     while (fgets(buffer, MAX_LEN, fp))
@@ -418,7 +428,27 @@ int Read_Configuration_File(const char* filename, struct DTBO_Data* conf)
                 conf->extra.flags.value |= (uint8_t)strtol(value, NULL, 16);
                 break;
             case CFG_BUS:
-                conf->extra.bus = (uint8_t)atoi(value);
+                if (value[0] == 'a' || value[0] == 'A'){
+                    i2c_autoscan(conf);
+                    continue;
+                } else {
+                    conf->extra.bus = (uint8_t)atoi(value);
+                }
+                break;
+            case CFG_TYPE:
+                switch((uint8_t)atoi(value))
+                {
+                    case ARC_TYPE_AUTO:
+                        log_message(LOG_INFO,"CONF type=auto used in line %d", line);
+                    case ARC_TYPE_8S003F3:
+                    case ARC_TYPE_RP2040:
+                        conf->extra.type = (uint8_t)atoi(value);
+                        break;
+                    default:
+                        log_message(LOG_WARN,"CONF Value out of range in line %d", line);
+                    continue;
+                }
+                conf->extra.type = (uint8_t)atoi(value);
                 break;
             case CFG_LOGLEVEL:
                 conf->Log_Level = (uint8_t)atoi(value);

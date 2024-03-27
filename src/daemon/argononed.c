@@ -122,6 +122,51 @@ void Alarm_handler(int sig __attribute__((unused)))
  */
 void Set_FanSpeed(uint8_t fan_speed)
 {
+    static int file_i2c = 0;        // i2c file descriptor
+    static uint8_t speed = 1;       // Current fan speed 
+    if (file_i2c == 0)
+    {
+        i2c_open(&file_i2c, Configuration.extra.bus);
+        if (file_i2c) {
+            i2c_acquire(file_i2c, 0x1a);
+            if (i2c_verify_device(file_i2c, 0x1a) < 0)
+            {
+                log_message(LOG_CRITICAL, "Unable to detect Argon fan controller");
+                close(file_i2c);
+                file_i2c = 0; // Reset so the i2c can reconnect on a different bus if requested
+                return;
+            }
+            if (Configuration.extra.type == ARC_TYPE_AUTO) i2c_scan_device(file_i2c, &Configuration.extra.type);
+            log_message(LOG_INFO,"Controller type %s Detected",(Configuration.extra.type == ARC_TYPE_RP2040) ? "RP2040" : "8S003F3");
+        } else {
+            file_i2c = 0;
+            return;
+        }
+        log_message(LOG_INFO + LOG_BOLD,"I²C Initialized");
+    }
+    if (fan_speed <= 100 && fan_speed != speed)
+    {
+        int write_success = 0;
+        if (Configuration.extra.type == ARC_TYPE_RP2040) 
+        {
+            write_success = i2c_write(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, fan_speed);
+        } else {
+            write_success = write(file_i2c, &fan_speed, 1);
+        }
+        if (write_success != 1)
+        {
+            log_message(LOG_CRITICAL, "Failed to write to the I²C bus.");
+        }
+        log_message(LOG_INFO, "Set fan to %d%%",fan_speed);
+        speed = fan_speed;
+        ptr->fanspeed = fan_speed;
+    } else if (fan_speed == 0xFF)
+    {
+        close(file_i2c);
+        file_i2c = 0; // Reset so the i2c can reconnect if needed
+        log_message(LOG_INFO + LOG_BOLD, "I²C closed");
+    }
+#if 0
     static int file_i2c = 0;        // i2c file descripter
     static uint8_t speed = 1;       // Current fan speed 
     static bool ctrl_reg = false;   // This is a V3+ case? 
@@ -130,10 +175,10 @@ void Set_FanSpeed(uint8_t fan_speed)
     {
         char filename[14]; // = (char*)"/dev/i2c-1  ";
         snprintf(filename,14,"/dev/i2c-%d", Configuration.extra.bus);
-        log_message(LOG_INFO,"Attempt to open the i2c bus at %s", filename);
+        log_message(LOG_INFO,"Attempt to open the I²C bus at %s", filename);
         if ((file_i2c = open(filename, O_RDWR)) < 0)
         {
-            log_message(LOG_CRITICAL,"Failed to open the i2c bus");
+            log_message(LOG_CRITICAL,"Failed to open the I²C bus");
             file_i2c = 0;  // Reset to zero this will allow the daemon to retry the connection
             return;
         }
@@ -178,7 +223,7 @@ void Set_FanSpeed(uint8_t fan_speed)
                 else { log_message(LOG_INFO, "Detected 8S003F3 controller"); }
             }
         }
-        log_message(LOG_INFO,"I2C Initialized");
+        log_message(LOG_INFO,"I²C Initialized");
     }
     if (fan_speed <= 100 && fan_speed != speed)
     {
@@ -191,7 +236,7 @@ void Set_FanSpeed(uint8_t fan_speed)
         }
         if (write_success != 1)
         {
-            log_message(LOG_CRITICAL,"Failed to write to the i2c bus.");
+            log_message(LOG_CRITICAL,"Failed to write to the I²C bus.");
         }
         log_message(LOG_INFO, "Set fan to %d%%",fan_speed);
         speed = fan_speed;
@@ -200,8 +245,9 @@ void Set_FanSpeed(uint8_t fan_speed)
     {
         close(file_i2c);
         file_i2c = 0; // Reset so the i2c can reconnect if needed
-        log_message(LOG_INFO,"i2c closed");
+        log_message(LOG_INFO,"I²C closed");
     }
+#endif
 }
 /**
  * \brief Read the CPU temperature
@@ -297,67 +343,6 @@ void TMR_Get_temp(size_t timer_id, void *user_data)
 	static uint8_t fanspeed = 0;
     static uint8_t temp_error = 0;
     uint8_t command = (user_data == NULL ? 0 :*(uint8_t*)user_data);
-#if 0
-    static int32_t fdtemp = 0;
-    FILE* fptemp = 0;
-    uint32_t property[10] =
-    {
-        0x00000000,
-        0x00000000,
-        0x00030006,
-        0x00000008,
-        0x00000004,
-        0x00000000,
-        0x00000000,
-        0x00000000,
-        0x00000000,
-        0x00000000
-    };
-    if (Configuration.extra.flags.USE_SYSFS)
-    {
-        char filename[36];
-        snprintf(filename,36,"/sys/class/hwmon/hwmon%d/temp1_input", Configuration.extra.flags.SET_HWMON_NUM);
-        log_message(LOG_DEBUG,"Open %s for temperature ",filename);
-        fptemp = fopen(filename, "r");
-        if (fptemp)
-        {
-            fscanf(fptemp, "%d", &CPU_Temp);
-            fclose(fptemp);
-        } else {
-            stop_timer(timer_id);
-            log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-        }
-        CPU_Temp = CPU_Temp / 1000;
-    } else {
-        property[0] = 10 * sizeof(property[0]);
-        if (user_data == NULL)
-        {
-            if (fdtemp == 0)
-            {
-                fdtemp = open("/dev/vcio", 0);
-                if (fdtemp == -1)
-                {
-                    log_message(LOG_CRITICAL, "Cannot access VideoCore I/O!");
-                    stop_timer(timer_id);
-                    log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-                } else { // this will flood the logs!
-                    // log_message(LOG_INFO, "Successfully opened /dev/vcio for temperature sensor");
-                }
-            }
-            if (ioctl(fdtemp, _IOWR(100, 0, char *), property) == -1)
-            {
-                log_message(LOG_CRITICAL, "Cannot get CPU Temp!");
-                stop_timer(timer_id);
-                log_message(LOG_CRITICAL, "Temperature can not be monitored!!");
-            }
-            CPU_Temp = property[6] / 1000;
-        } else {
-            close(fdtemp);
-            log_message(LOG_INFO, "Successfully closed temperature sensor");
-            return;
-        }
-    } 
-#endif
     switch (command)
     {
         case 0:

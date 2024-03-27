@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2022 DarkElvenAngel
+Copyright (c) 2024 DarkElvenAngel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -73,6 +73,12 @@ typedef enum {
     LOG_BOLD = 8,
     LOG_INVERT = 16
 } Log_Level;
+
+typedef enum {
+    ARC_TYPE_AUTO       =   0,
+    ARC_TYPE_8S003F3,
+    ARC_TYPE_RP2040
+} Arc_Type;
 
 /**
  * \brief Schedule struct holds setting for when the fan is triggered, speed, and hysteresis
