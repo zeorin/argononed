@@ -9,6 +9,7 @@ Not all features are working, present, and/or stable. Functions and instruction 
 ## What's new in 0.5.x
 
 * Support added for Pi 5
+* Support for Argon ONE V3
 
 ## Why make this?
 
@@ -88,6 +89,22 @@ Version 0.1.0 of the overlay has additional settings
 
 This overlay version also presets the GPIO 4 as and input with it's pull down resistor enabled.
 
+Version 0.2.0 of the overlay has additional settings
+
+* **argon-type** - This is used to set the controller type *default 0* ** See controller type list for vaild values.
+
+#### Controller types
+
+Starting with the Argon One V3 the micro controller used to control the fan has been changed to the RP2040.  This means that a new protocol is required to communicate with the device.
+
+* 0 - Auto Detect [DEFAULT]
+* 1 - 8S003F3 : This controller is used in the following devices 
+    * ARTIK HAT
+    * Argon One Pi3; V1; V2
+    * Argon EON V1
+* 2 - RP2040 : This Controller is known to be used in the following devices
+    * Argon One V3
+
 #### Example config.txt
 
 In this example the hysteresis will be set to 5 and the fan will start at 50℃
@@ -109,6 +126,7 @@ The default configuration is loaded from the `config.txt` via the *device-tree* 
 * loglevel - change the log level of the daemon see Logging Options for values.
 * i2cbus - change the i2c bus address default is 1 and this value is rarely changed.
 * flags - see Advanced Build Options for values. **IMPORTANT this value is in HEX format**
+* type - set the micro controller type default is 0 [auto detect]
 
 #### Example configuration file
 
@@ -150,7 +168,7 @@ These are subject to change before release.
 
 #### Example comand line
 
-`# argononed -cl6 --conf=/tmp/argononed.conf` This will start the in foreground with colour output, set the log level to 6 *DEBUG* and set the configuration file to **/tmp/argononed.conf**
+`# argononed -cl 6 --conf=/tmp/argononed.conf` This will start the in foreground with colour output, set the log level to 6 *DEBUG* and set the configuration file to **/tmp/argononed.conf**
 
 ### Final word on configuration
 
@@ -159,6 +177,8 @@ If you are an advanced user and need to easily set multiple configurations it is
 An example of this would be the **DISABLE_POWERBUTTON** flag if you build with this option enabled it will no longer be possible to use the power button.
 
 If you make a typo in the configuration file you will get warnings in log.  This will also set the **EF_CONF** flag.  Likewise a mistake on the command line arguments will set the *EF_ARG** flag.
+
+The option to use AUTO DETECT for the i2c bus and controller types have support.  Initial test show this is very reliable but this isn't well tested on outside a handful of my own test machines.  Please report any errors or issues when this feature is in use.
 
 ## Upgrading to the latest version
 
@@ -209,7 +229,7 @@ This is the default mode the daemon always starts in this mode and will follow t
 Yes an off switch, maybe you want to do something and you need to be sure the fan doesn't turn on and spoil it.  You can turn off the fan as follows ```argonone-cli --off```
 ***NOTE***: *When the fan is off nothing but turning to a different mode will turn it back on*
 
-## `argonone-cli` tool [ **WARNING** DEPRECATED ]
+## `argonone-cli` tool 
 
 The `argonone-cli` command line tool lets you change setting on the fly. It communicates with shared memory of the daemon, so the daemon must be running for this tool to be of use.
 
@@ -297,5 +317,5 @@ The proposed features are
 * Logging client no matter the loglevel of the daemon you can use the logging client to read log events.
 * send commands example restart i2c
 * read status the is much like `argonone-cli --decode`
-* IR controls the argon one V2 has a built-in IR sensor that can be programed
+* IR controls the argon one V2 has a built-in IR sensor that can be programmed
 * Fan control **without** the daemon!!  send fan command directly to the controller with or without the daemon.

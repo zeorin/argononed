@@ -5,6 +5,8 @@
 * Reorganized file layout
 * Rework of build system
 * Daemon now uses new arg parser
+* i2c bus scanning, auto detect, and controller scan
+* support for Pi 5 and Argon ONE V3
 * Started `argonctl`
 
 0.4.0
