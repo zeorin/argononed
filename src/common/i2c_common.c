@@ -293,3 +293,25 @@ void i2c_autoscan(struct DTBO_Data* conf)
     }
     log_message(LOG_INFO + LOG_BOLD, "I²C auto scan complete");
 }
+
+int i2c_write_fan(int fd, uint8_t type, uint8_t address, uint8_t speed)
+{
+    int write_success = 0;
+    switch (type)
+    {
+        case ARC_TYPE_8S003F3:
+            write_success = write(fd, &speed, 1);
+            break;
+        case ARC_TYPE_RP2040:
+            write_success = i2c_write(fd, address, ARG_REG_DUTYCYCLE, speed);
+            break;
+        default:
+            log_message(LOG_ERROR, "Controller type %hhu is invalid");
+            break;
+    }
+    if (write_success != 1)
+    {
+        log_message(LOG_CRITICAL, "Failed to write to the I²C bus.");
+    }
+    return write_success;
+}

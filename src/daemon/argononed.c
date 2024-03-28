@@ -146,108 +146,18 @@ void Set_FanSpeed(uint8_t fan_speed)
     }
     if (fan_speed <= 100 && fan_speed != speed)
     {
-        int write_success = 0;
-        if (Configuration.extra.type == ARC_TYPE_RP2040) 
+        if (i2c_write_fan(file_i2c, Configuration.extra.type, 0x1A, fan_speed) == 1)
         {
-            write_success = i2c_write(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, fan_speed);
-        } else {
-            write_success = write(file_i2c, &fan_speed, 1);
+            log_message(LOG_INFO, "Set fan to %d%%",fan_speed);
+            speed = fan_speed;
+            ptr->fanspeed = fan_speed;
         }
-        if (write_success != 1)
-        {
-            log_message(LOG_CRITICAL, "Failed to write to the I²C bus.");
-        }
-        log_message(LOG_INFO, "Set fan to %d%%",fan_speed);
-        speed = fan_speed;
-        ptr->fanspeed = fan_speed;
     } else if (fan_speed == 0xFF)
     {
         close(file_i2c);
         file_i2c = 0; // Reset so the i2c can reconnect if needed
         log_message(LOG_INFO + LOG_BOLD, "I²C closed");
     }
-#if 0
-    static int file_i2c = 0;        // i2c file descripter
-    static uint8_t speed = 1;       // Current fan speed 
-    static bool ctrl_reg = false;   // This is a V3+ case? 
-    unsigned long functions = 0;
-	if (file_i2c == 0)
-    {
-        char filename[14]; // = (char*)"/dev/i2c-1  ";
-        snprintf(filename,14,"/dev/i2c-%d", Configuration.extra.bus);
-        log_message(LOG_INFO,"Attempt to open the I²C bus at %s", filename);
-        if ((file_i2c = open(filename, O_RDWR)) < 0)
-        {
-            log_message(LOG_CRITICAL,"Failed to open the I²C bus");
-            file_i2c = 0;  // Reset to zero this will allow the daemon to retry the connection
-            return;
-        }
-        if (ioctl(file_i2c, I2C_FUNCS, &functions) < 0) {
-            log_message(LOG_WARN, "Could not get the adapter functionality matrix: %s", strerror(errno));
-        }
-        int addr = 0x1a;
-        if (ioctl(file_i2c, I2C_SLAVE, addr) < 0)
-        {
-            if (errno == EBUSY) log_message(LOG_WARN, "Device address is busy");
-            else log_message(LOG_CRITICAL,"Failed to acquire bus access");
-            close(file_i2c);
-            file_i2c = 0; // Reset so the i2c can reconnect if needed
-            return;
-        }
-        if ((functions & I2C_FUNC_SMBUS_QUICK))
-        {
-            struct i2c_smbus_ioctl_data args;
-            args.read_write = I2C_SMBUS_WRITE;
-            args.command = 0;
-            args.size = 0;
-            args.data = NULL;
-
-            if (ioctl(file_i2c, I2C_SMBUS, &args) < 0)
-            {
-                log_message(LOG_WARN, "Unable to detect Argon fan controller");
-                close(file_i2c);
-                file_i2c = 0; // Reset so the i2c can reconnect on a different bus if requested
-                return;
-            }
-            else // Scan for V3 controller
-            {
-                log_message(LOG_DEBUG, "Argon fan controller found");
-                log_message(LOG_INFO + LOG_BOLD, "Scan controller type");
-                uint8_t test_data, return_data;
-                i2c_read(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, &test_data);
-                return_data = test_data + 1;
-                i2c_write(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, return_data);
-                i2c_read(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, &return_data);
-                ctrl_reg = return_data != test_data ? true : false;
-                if (ctrl_reg) { log_message(LOG_INFO, "Detected RP2040 controller"); }
-                else { log_message(LOG_INFO, "Detected 8S003F3 controller"); }
-            }
-        }
-        log_message(LOG_INFO,"I²C Initialized");
-    }
-    if (fan_speed <= 100 && fan_speed != speed)
-    {
-        int write_success = 0;
-        if (ctrl_reg) 
-        {
-            write_success = i2c_write(file_i2c, 0x1a, ARG_REG_DUTYCYCLE, fan_speed);
-        } else {
-            write_success = write(file_i2c, &fan_speed, 1);
-        }
-        if (write_success != 1)
-        {
-            log_message(LOG_CRITICAL,"Failed to write to the I²C bus.");
-        }
-        log_message(LOG_INFO, "Set fan to %d%%",fan_speed);
-        speed = fan_speed;
-        ptr->fanspeed = fan_speed;
-    } else if (fan_speed == 0xFF)
-    {
-        close(file_i2c);
-        file_i2c = 0; // Reset so the i2c can reconnect if needed
-        log_message(LOG_INFO,"I²C closed");
-    }
-#endif
 }
 /**
  * \brief Read the CPU temperature

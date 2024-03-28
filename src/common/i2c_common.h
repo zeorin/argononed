@@ -45,4 +45,5 @@ void i2c_acquire(int fd, uint8_t Address);
 int i2c_verify_device(int fd, uint8_t Address);
 void i2c_scan_device(int fd, uint8_t* Device_Type);
 void i2c_autoscan(struct DTBO_Data* conf);
+int i2c_write_fan(int fd, uint8_t type, uint8_t address, uint8_t speed);
 #endif
