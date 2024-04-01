@@ -36,6 +36,7 @@ SOFTWARE.
 #include "argononed.common.h"
 #include "i2c_common.h"
 
+#define MAX_LEN 256
 
 void i2c_open(int* fd, uint8_t dev_num){
     char filename[14];
@@ -243,6 +244,20 @@ SCAN_DEV i2c_scan_bus(const char* i2cbus)
         }
     }
     close(file_i2c);
+    if (access("/proc/device-tree/hat/product", R_OK) == 0)
+        {
+            FILE* fp = fopen("/proc/device-tree/hat/product","rb");
+            if (fp)
+            {
+                char buffer[MAX_LEN];
+                fgets(buffer, MAX_LEN, fp);
+                fclose(fp);
+                if (strcmp(buffer, "Argon Forty Controllable Fan Hat") == 0)
+                {
+                   if (strcmp("X____",bus) == 0) { log_message(LOG_DEBUG, "FOUND Argon Hat"  ); return SCANDEV_ARGONHAT; }
+                }
+            }
+        }
     if (strcmp("X____",bus) == 0) { log_message(LOG_DEBUG, "FOUND Argon ONE"  ); return SCANDEV_ARGONONE; }
     if (strcmp("XXX__",bus) == 0) { log_message(LOG_DEBUG, "FOUND Argon EON"  ); return SCANDEV_ARGONEON; }
     log_message(LOG_DEBUG, "NO DEVICE FOUND" );

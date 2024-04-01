@@ -9,6 +9,7 @@ typedef enum {
     SCANDEV_NONE = 0,
     SCANDEV_ARGONONE = 1,
     SCANDEV_ARGONEON = 2,
+    SCANDEV_ARGONHAT = 3,
     SCANDEV_ERROR = -1
 } SCAN_DEV;
 
