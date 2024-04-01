@@ -1,5 +1,6 @@
 BUILD_PATH  = ../../build
 SRC_FILES 	= args.c
+CFLAGS       = -Wall -s -Os
 FILE_OBJ	= $(addprefix $(BUILD_PATH)/, $(addsuffix .o,$(basename $(SRC_FILES))))
 
 $(BUILD_PATH)/%.o: %.c
