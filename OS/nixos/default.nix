@@ -87,7 +87,7 @@
           /dts-v1/;
           /plugin/;
           / {
-            compatible = "brcm,bcm2711";
+            compatible = "brcm,bcm2712";
             fragment@0 {
               target = <&argonone>;
               __overlay__ {

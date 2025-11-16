@@ -1,11 +1,11 @@
---- a/src/argonone.dts
-+++ b/src/argonone.dts
+--- a/src/overlay/argonone.dts
++++ b/src/overlay/argonone.dts
 @@ -3,7 +3,7 @@
  /plugin/;
  
  / {
 -    compatible = "brcm,bcm2835";
-+    compatible = "brcm,bcm2711";
++    compatible = "brcm,bcm2712";
  
      fragment@0 {
          target-path = "/";

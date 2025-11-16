@@ -1,5 +1,5 @@
---- a/src/argononed.c
-+++ b/src/argononed.c
+--- a/src/daemon/argononed.c
++++ b/src/daemon/argononed.c
 @@ -665,13 +665,13 @@ int main(int argc,char **argv)
          {
              log_message(LOG_DEBUG, "EXEC REBOOT");
